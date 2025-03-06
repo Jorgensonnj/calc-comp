@@ -2,10 +2,13 @@
 
 import os
 import re
-from typing import Dict
+import heapq
+from datetime import datetime
+from typing import Dict, Tuple
 
-def process_set_line(line: str) -> Dict[str, Dict[str, str]]:
-    set_data = dict()
+def extract_project_data(line: str) -> Tuple[str, Dict[str, str]]:
+    project_id = ""
+    project_data = dict()
 
     # Use regex to extract project information
     matches = re.search(
@@ -13,20 +16,29 @@ def process_set_line(line: str) -> Dict[str, Dict[str, str]]:
         line
     )
     if matches is not None:
+        project_id = matches.group(1)
+        project_data["project_cost"] = matches.group(2)
+        project_data["project_start"] = matches.group(3)
+        project_data["project_end"] = matches.group(4)
 
-        product_id = matches.group(1)
+    return project_id, project_data
 
-        # Duplicate project rows will result in the last entry
-        # overwriting existing project data in dictionary.
-        # This prevents double calculations of compensation
-        if not product_id in set_data:
-            set_data[product_id] = dict()
+def process_set_data(set_data: Dict[str, Dict[str, str]]):
+    dates = list()
+    # Extract date date from dictionary and convert to datetime
+    for project_data in set_data.values():
+        if (start_data := project_data.get("project_start")) and (end_data := project_data.get("project_end")):
+            dates.append(datetime.strptime(start_data, '%m/%d/%y')) # add start date to list
+            dates.append(datetime.strptime(end_data,'%m/%d/%y'))    # add end date to list
 
-        set_data[product_id]["project_cost"] = matches.group(2)
-        set_data[product_id]["project_start"] = matches.group(3)
-        set_data[product_id]["project_end"] = matches.group(4)
+    # Where the magic happens
+    heapq.heapify(dates)
 
-    return set_data
+    while len(dates) > 0:
+        item = heapq.heappop(dates)
+        print(f"{item}")
+
+
 
 def process_set(directory_path: str, file_name: str):
     file_path = os.path.join(directory_path, file_name)
@@ -35,11 +47,18 @@ def process_set(directory_path: str, file_name: str):
     # Open file and get data
     with open(file_path, 'r') as file:
         lines = file.readlines()
+        print(f"{file_name}:")
         for line in lines:
-            set_data = process_set_line(line.strip())
+            project_id, project_data = extract_project_data(line.strip())
+
+            # This will overwrite existing data at project_id location.
+            # This will prevent duplicate project information per set.
+            set_data[project_id] = project_data
+
 
     # After file is closed,
-    print(f"{file_name}: {set_data}")
+    process_set_data(set_data)
+    #print(f"{file_name}: {set_data}")
 
 def process_all(directory_path: str):
     # Loop through all set files in given directory
