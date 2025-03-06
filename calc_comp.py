@@ -2,10 +2,10 @@
 
 import os
 import re
-from typing import Dict, List
+from typing import Dict
 
-def process_set_line(line: str) -> Dict[str, str]:
-    project_data = dict()
+def process_set_line(line: str) -> Dict[str, Dict[str, str]]:
+    set_data = dict()
 
     # Use regex to extract project information
     matches = re.search(
@@ -13,49 +13,58 @@ def process_set_line(line: str) -> Dict[str, str]:
         line
     )
     if matches is not None:
-        project_data["project_number"] = matches.group(1)
-        project_data["project_cost"] = matches.group(2)
-        project_data["project_start"] = matches.group(3)
-        project_data["project_end"] = matches.group(4)
 
-    return project_data
+        product_id = matches.group(1)
 
-def process_set_file(file_path: str) -> List[Dict[str, str]]:
+        # Duplicate project rows will result in the last entry
+        # overwriting existing project data in dictionary.
+        # This prevents double calculations of compensation
+        if not product_id in set_data:
+            set_data[product_id] = dict()
+
+        set_data[product_id]["project_cost"] = matches.group(2)
+        set_data[product_id]["project_start"] = matches.group(3)
+        set_data[product_id]["project_end"] = matches.group(4)
+
+    return set_data
+
+def process_set(directory: str, file_name: str):
     # Open file for reading
-    projects = list()
+
+    file_path = os.path.join(os.path.dirname(__file__), directory, file_name)
+    print(file_path)
+    set_data = dict()
     with open(file_path, 'r') as file:
         lines = file.readlines()
         for line in lines:
-            # Extract the line's data and add it to the array
-            projects.append(
-                process_set_line(line.strip())
-            )
+            set_data = process_set_line(line.strip())
 
-    return projects
+        print(f"{file_name}: {set_data}")
 
-def import_and_process_files(directory: str):
+def process_all(directory: str):
+
+    # Define where the sets live relative
+    # to where this script gets executed
+    # example: /home/username/Projects/python/calc-comp/ as starting point
+    directory_path = os.path.join(os.path.dirname(__file__), directory)
+
     # Loop through all set files in given directory
-    for filename in os.listdir(directory):
-        # Let's just focus on the first set for now
-        if filename != "set_1":
-            continue
-
-        file_path = os.path.join(directory, filename)
-
-        print(f"{filename}: {process_set_file(file_path)}")
+    for file_name in os.listdir(directory_path):
+        process_set(directory, file_name)
 
 
 def main():
 
-    # Define where the sets of projects live relative
-    # to where this script gets executed
-    # example: /home/username/Projects/python/calc-comp/ as starting point
-    PROJECT_SETS_DIRECTORY = "sets"
-    PROJECT_SETS_PATH = os.path.join(os.path.dirname(__file__), PROJECT_SETS_DIRECTORY)
 
-    import_and_process_files(PROJECT_SETS_PATH)
+    DIRECTORY = "sets"
 
-    #print("Tis just the beginning")
+    if not os.path.isdir(DIRECTORY):
+        print(f"Directory does not exist.")
+        exit()
+
+    process_set(DIRECTORY, "set_1")
+    #process_all(DIRECTORY)
+
 
 if __name__ == "__main__":
     main()
