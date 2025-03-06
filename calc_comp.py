@@ -24,19 +24,27 @@ def extract_project_data(line: str) -> Tuple[str, Dict[str, str]]:
 
     return project_id, project_data
 
-def process_set_data(set_data: Dict[str, Dict[str, str]]) -> List[Tuple[datetime, Dict[str, str]]]:
+def process_set_data(set_data: Dict[str, Dict[str, str]]) -> List[Tuple[datetime, str, Dict[str, str]]]:
     dates = list()
     # Extract date date from dictionary and convert to datetime
     for project_data in set_data.values():
-        dates.append((datetime.strptime(project_data["project_start"], '%m/%d/%y'), project_data)) # add start date to list
-        dates.append((datetime.strptime(project_data["project_end"],'%m/%d/%y'), project_data))    # add end date to list
+        dates.append((
+            datetime.strptime(project_data["project_start"], '%m/%d/%y'),
+            project_data["project_id"],
+            project_data
+        )) # add start date to list
+        dates.append((
+            datetime.strptime(project_data["project_end"], '%m/%d/%y'),
+            project_data["project_id"],
+            project_data
+        )) # add start date to list
 
     # Where the magic happens
     heapq.heapify(dates)
 
     return dates
 
-def calculate(date_heap: List[Tuple[datetime, Dict[str, str]]]):
+def calculate(date_heap: List[Tuple[datetime, str, Dict[str, str]]]):
 
     # Hardcoded costs
     city_cost = {"High": (85, 55), "Low": (75,45)}
@@ -45,10 +53,11 @@ def calculate(date_heap: List[Tuple[datetime, Dict[str, str]]]):
 
     # Start pointer
     start = heapq.heappop(date_heap)
-    start_date, start_data = start[0], start[1]
+    start_date, start_data = start[0], start[2]
 
     while len(date_heap) > 0:
 
+        # End pointer
         end = heapq.heappop(date_heap)
         end_date = end[0]
 
@@ -97,7 +106,7 @@ def main():
         print(f"Directory does not exist.")
         exit()
 
-    process_set(DIRECTORY_PATH, "set_1")
+    process_set(DIRECTORY_PATH, "set_2")
 
 
 if __name__ == "__main__":
