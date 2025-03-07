@@ -2,8 +2,7 @@
 
 import os
 import re
-import heapq
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Tuple, List
 
 class Project:
@@ -38,31 +37,65 @@ def extract_project_data(line: str) -> Tuple[str, Project] | None:
 
     return None
 
-def process_set_data(set_data: Dict[str, Project]) -> List[Project]:
-    projects = list()
+def process_set_data(set_data: Dict[str, Project]) -> List[List[Project]]:
+    sequences: List[List[Project]] = list()
 
-    # Garrentee that the projects are in order of their start date
+    # Guarantee that the projects are in order of their start date
     sorted_projects = [ item for item in sorted(set_data.values(), key=lambda project : project.start_date) ]
 
-    previous = sorted_projects[0]
-    for project in sorted_projects[1:]:
+    previous = sorted_projects.pop(0)
+    is_contiguous = False
+    while len(sorted_projects) > 0:
+        project = sorted_projects.pop(0)
 
-        # merge projects into on larg
+        # Is there an overlap?
         if project.start_date <= previous.end_date:
-            previous.end_date = max(previous.end_date, project.end_date)
+            if previous.end_date < project.end_date:
+                # Adjust the overlapping items
+                if previous.rate == "High":
+                    project.start_date = previous.end_date + timedelta(days=1)
+                    sequences.append([previous])
+                else:
+                    previous.end_date = project.start_date - timedelta(days=1)
+                    sequences.append([previous])
+            else:
+                # if previous item is larger, but the over lapping section as precedence
+                if previous.rate == "Low" and project.rate == "High":
+                    temp = previous.end_date
+                    previous.end_date = project.start_date - timedelta(days=1)
+                    sequences.append([previous])
+                    sequences[-1].append(project)
+                    new_project = Project(
+                        previous.id,
+                        previous.rate,
+                        project.end_date + timedelta(days=1),
+                        temp
+                    )
+                    sequences[-1].append(new_project)
+
+            is_contiguous = True
         else:
-            projects.append(previous)
+            if is_contiguous:
+                sequences[-1].append(previous)
+                is_contiguous = False
+            else:
+                sequences.append([previous])
+
             previous = project
 
-    projects.append(previous)
+    if is_contiguous:
+        sequences[-1].append(previous)
+    else:
+        sequences.append([previous])
 
-    return projects
+    return sequences
 
-def calculate(projects: List[Project]):
-    # Hardcoded costs
+def calculate(sequences: List[List[Project]]):
+    # Hard coded
     #city_cost = {"High": (85, 55), "Low": (75,45)} # (full_day, travel_day)
-
     total_compensation = 0
+
+    print(sequences)
 
     return total_compensation
 
@@ -82,12 +115,13 @@ def process_set(directory_path: str, file_name: str):
                 set_data[project_id] = project
 
     # After file is closed, process the set data
+
     projects = process_set_data(set_data)
 
     # Finally, calculate the compensation
-    #total_compensation = calculate(date_heap)
+    total_compensation = calculate(projects)
 
-    #print(f"Set: {file_name} Total: {total_compensation}")
+    print(f"Set: {file_name} Total: {total_compensation}")
 
 def process_all(directory_path: str):
     # Loop through all set files in given directory
@@ -106,6 +140,7 @@ def main():
         print(f"Directory does not exist.")
         exit()
 
+    process_set(DIRECTORY_PATH, "set_1")
     process_set(DIRECTORY_PATH, "set_2")
     #process_all(DIRECTORY_PATH)
 
