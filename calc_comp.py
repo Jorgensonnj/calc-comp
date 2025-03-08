@@ -45,6 +45,7 @@ def process_set_data(set_data: Dict[str, Project]) -> List[List[Project]]:
 
     previous = sorted_projects.pop(0)
     is_contiguous = False
+
     while len(sorted_projects) > 0:
         project = sorted_projects.pop(0)
 
@@ -58,6 +59,10 @@ def process_set_data(set_data: Dict[str, Project]) -> List[List[Project]]:
                 else:
                     previous.end_date = project.start_date - timedelta(days=1)
                     sequences.append([previous])
+                is_contiguous = True
+
+            elif previous.end_date == project.end_date:
+                pass # just drop the previous project
             else:
                 # if previous item is larger, but the over lapping section as precedence
                 if previous.rate == "Low" and project.rate == "High":
@@ -72,16 +77,16 @@ def process_set_data(set_data: Dict[str, Project]) -> List[List[Project]]:
                         temp
                     )
                     sequences[-1].append(new_project)
+                is_contiguous = True
 
-            is_contiguous = True
         else:
-            if is_contiguous:
+            if is_contiguous and len(sorted_projects) > 0:
                 sequences[-1].append(previous)
                 is_contiguous = False
             else:
                 sequences.append([previous])
 
-            previous = project
+        previous = project
 
     if is_contiguous:
         sequences[-1].append(previous)
@@ -92,10 +97,42 @@ def process_set_data(set_data: Dict[str, Project]) -> List[List[Project]]:
 
 def calculate(sequences: List[List[Project]]):
     # Hard coded
-    #city_cost = {"High": (85, 55), "Low": (75,45)} # (full_day, travel_day)
+    city_cost = {"High": (85, 55), "Low": (75,45)} # (full day rate, travel day rate)
     total_compensation = 0
 
-    print(sequences)
+    for sequence in sequences:
+
+        first_project = sequence[0]
+        last_project = sequence[-1]
+
+        # remove the first and the last days and add the compensation at the right rate
+        # The two projects are not the same
+        if first_project != last_project:
+
+            first_project.start_date += timedelta(days=1)
+            last_project.end_date -= timedelta(days=1)
+
+            total_compensation += city_cost[first_project.rate][1]
+            total_compensation += city_cost[last_project.rate][1]
+
+        else:
+            # last and first are the same project
+            if last_project.start_date != last_project.end_date:
+
+                last_project.start_date += timedelta(days=1)
+                last_project.end_date -= timedelta(days=1)
+
+                total_compensation += city_cost[last_project.rate][1]
+                total_compensation += city_cost[last_project.rate][1]
+            else:
+                sequence.pop()
+
+                total_compensation += city_cost[last_project.rate][1]
+
+        # Add up all of the full work days
+        for project in sequence:
+            days = (project.end_date - project.start_date).days + 1
+            total_compensation += days * city_cost[project.rate][0]
 
     return total_compensation
 
@@ -115,7 +152,6 @@ def process_set(directory_path: str, file_name: str):
                 set_data[project_id] = project
 
     # After file is closed, process the set data
-
     projects = process_set_data(set_data)
 
     # Finally, calculate the compensation
@@ -140,9 +176,11 @@ def main():
         print(f"Directory does not exist.")
         exit()
 
-    process_set(DIRECTORY_PATH, "set_1")
-    process_set(DIRECTORY_PATH, "set_2")
-    #process_all(DIRECTORY_PATH)
+    #process_set(DIRECTORY_PATH, "set_1")
+    #process_set(DIRECTORY_PATH, "set_2")
+    #process_set(DIRECTORY_PATH, "set_3")
+    #process_set(DIRECTORY_PATH, "set_4")
+    process_all(DIRECTORY_PATH)
 
 
 if __name__ == "__main__":
