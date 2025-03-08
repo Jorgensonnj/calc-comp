@@ -42,5 +42,5 @@ Then run the command
 ## Assumptions
 
 * The user is familiar with the command line and is able to execute the program
-* The user project set files are in the set directory
+* The project set files are in the set directory
 * Valid project set lines are formatted correctly and are in their respective project set file
